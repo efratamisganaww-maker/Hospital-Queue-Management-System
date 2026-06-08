@@ -1,0 +1,643 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <sstream>
+#include <cctype>
+#include <algorithm>
+using namespace std;
+// Structure to store patient details
+struct Patient {
+    int id;
+    string name;
+    string condition;
+    int priority;
+    int arrivaltime;
+};
+
+// Node for custom priority queue
+struct Node {
+    Patient data;
+    Node* next;
+};
+
+Node* hospitalQueue = nullptr;
+int patientcounter = 0;
+string currentRole = "";
+//  Helper Functions 
+bool exists(int id) {
+    Node* temp = hospitalQueue;
+    while (temp != nullptr) {
+        if (temp->data.id == id)
+            return true;
+        temp = temp->next;
+    }
+    return false;
+}
+int getValidInt() {
+    string input;
+    int x;
+
+    while (true) {
+        getline(cin, input);
+
+        if (input.empty()) {
+            cout << "Input cannot be empty! Enter a number: ";
+            continue;
+        }
+
+        stringstream ss(input);
+
+        if (ss >> x && ss.eof())
+            return x;
+        else
+            cout << "Invalid input! Enter a valid number: ";
+    }
+}
+
+string getValidInput(string prompt) {
+    string input;
+    bool valid;
+
+    do {
+        cout << prompt;
+        getline(cin, input);
+
+        valid = true;
+
+        if (input.empty()) {
+            cout << "Input cannot be empty.\n";
+            valid = false;
+            continue;
+        }
+
+        bool allSpaces = true;
+        for (char c : input) {
+            if (c != ' ') {
+                allSpaces = false;
+                break;
+            }
+        }
+
+        if (allSpaces) {
+            cout << "Input cannot be only spaces.\n";
+            valid = false;
+            continue;
+        }
+      
+        if (input[0] == ' ') {
+            cout << "First character cannot be a space.\n";
+            valid = false;
+            continue;
+        }
+       for (char c : input) {
+            if (!isalpha(c) && c != ' ') {
+                valid = false;
+                break;
+            }
+        }
+        if (!valid) {
+            cout << "Name must contain only letters and spaces.\n";
+        }
+
+    } while (!valid);
+    return input;
+}
+
+bool isEmpty() {
+    return hospitalQueue == nullptr;
+}
+
+// Insert by priority
+void enqueue(Patient p) {
+    Node* newNode = new Node;
+    newNode->data = p;
+    newNode->next = nullptr;
+
+    if (hospitalQueue == nullptr ||
+        p.priority < hospitalQueue->data.priority ||
+        (p.priority == hospitalQueue->data.priority &&
+         p.arrivaltime < hospitalQueue->data.arrivaltime)) {
+
+        newNode->next = hospitalQueue;
+        hospitalQueue = newNode;
+        return;
+    }
+
+    Node* temp = hospitalQueue;
+
+    while (temp->next != nullptr &&
+          (temp->next->data.priority < p.priority ||
+          (temp->next->data.priority == p.priority &&
+           temp->next->data.arrivaltime < p.arrivaltime))) {
+
+        temp = temp->next;
+    }
+
+    newNode->next = temp->next;
+    temp->next = newNode;
+}
+
+// Remove highest priority
+Patient dequeue() {
+    Patient p = hospitalQueue->data;
+    Node* temp = hospitalQueue;
+    hospitalQueue = hospitalQueue->next;
+    delete temp;
+    return p;
+}
+//Function for saving data in to file
+void SaveToFile() {
+if (isEmpty()){
+        cout << "Queue is empty. Do you want to overwrite the file with empty data? (1=Yes, 0=No): ";
+        int confirm = getValidInt();
+        if (confirm != 1) {
+            cout << "Save cancelled.\n";
+            return;
+        } }
+    ofstream outFile("Patients.txt");
+
+    Node* temp = hospitalQueue;
+
+    while (temp != nullptr) {
+        Patient p = temp->data;
+
+        outFile << p.id << ","
+                << p.name << ","
+                << p.condition << ","
+                << p.priority << ","
+                << p.arrivaltime << endl;
+
+        temp = temp->next;
+    }
+
+    outFile.close();
+    cout << "Saved successfully.\n";}
+//Function to add patient in to list 
+void addPatient() {
+    if (currentRole != "receptionist") {
+    cout << "Access denied. Receptionist only.\n";
+    return;
+}
+    Patient p;
+
+    cout << "Enter Patient ID: ";
+    p.id = getValidInt();
+    if (exists(p.id)) {
+    cout << "Patient ID already exists.\n";
+    return;
+     }
+
+    p.name = getValidInput("Enter Patient Name: ");
+
+    int condChoice;
+
+    while (true) {
+        cout << "1. Severe Injury\n";
+        cout << "2. Serious Illness\n";
+        cout << "3. Mild Condition\n";
+
+        condChoice = getValidInt();
+
+        switch (condChoice) {
+            case 1:
+                p.condition = "Severe Injury";
+                p.priority = 1;
+                break;
+            case 2:
+                p.condition = "Serious Illness";
+                p.priority = 2;
+                break;
+            case 3:
+                p.condition = "Mild Condition";
+                p.priority = 3;
+                break;
+            default:
+                cout << "Invalid choice.\n";
+                continue;
+        }
+        break;
+    }
+
+    p.arrivaltime = ++patientcounter;
+
+    enqueue(p);
+
+    cout << "Patient added successfully.\n";
+    SaveToFile();
+}
+//Function to serve Patient
+void servePatient() {
+    if (currentRole != "receptionist") {
+    cout << "Access denied. Receptionist only.\n";
+    return;
+}
+    if (isEmpty()) {
+        cout << "No patients in queue.\n";
+        return;
+    }
+
+    Patient p = dequeue();
+
+    cout << "\nServing Patient:\n";
+    cout << "ID: " << p.id << endl;
+    cout << "Name: " << p.name << endl;
+    cout << "Condition: " << p.condition << endl;
+    cout << "Priority: " << p.priority << endl;
+    SaveToFile();
+}
+//Function for displaying patient record list
+void displayPatients() {  
+    if (isEmpty()) {
+        cout << "Queue is empty.\n";
+        return;
+    }
+
+    Node* temp = hospitalQueue;
+
+    cout << "\nPatients in Queue:\n";
+
+    while (temp != nullptr) {
+        cout << "ID: " << temp->data.id
+             << ", Name: " << temp->data.name
+             << ", Condition: " << temp->data.condition
+             << ", Priority: " << temp->data.priority << endl;
+
+        temp = temp->next;
+    }
+}
+// Function for displaying spacfic Patient record 
+void display_sPatients() {
+    
+    if (isEmpty()) {
+        cout << "Queue is empty.\n";
+        return;
+    }
+
+    int id;
+    cout << "Required P_ID: ";
+    id = getValidInt();
+
+    Node* temp = hospitalQueue;
+
+    while (temp != nullptr) {
+        if (temp->data.id == id) {
+            cout << "\nPatient Found:\n";
+            cout << "ID: " << temp->data.id << endl;
+            cout << "Name: " << temp->data.name << endl;
+            cout << "Condition: " << temp->data.condition << endl;
+            cout << "Priority: " << temp->data.priority << endl;
+            return;
+        }
+        temp = temp->next;
+    }
+
+    cout << "Patient not found.\n";
+}
+//Function for loading data from file
+void loadFromFile() {
+    while (!isEmpty())
+        dequeue();
+
+    ifstream inFile("Patients.txt");
+
+    if (!inFile) {
+        cout << "File not found.\n";
+        return;
+    }
+
+    string line;
+
+    while (getline(inFile, line)) {
+        stringstream ss(line);
+
+        string idStr, name, condition, priorityStr, arrivalStr;
+
+        getline(ss, idStr, ',');
+        getline(ss, name, ',');
+        getline(ss, condition, ',');
+        getline(ss, priorityStr, ',');
+        getline(ss, arrivalStr, ',');
+
+        Patient p;
+
+        p.id = stoi(idStr);
+        p.name = name;
+        p.condition = condition;
+        p.priority = stoi(priorityStr);
+        p.arrivaltime = stoi(arrivalStr);
+
+        patientcounter = max(patientcounter, p.arrivaltime);
+
+        if (!exists(p.id))
+    enqueue(p);
+       else
+    cout << "Duplicate ID skipped: " << p.id << endl;
+    }
+
+    inFile.close();
+
+    cout << " Data Loaded successfully.\n";
+}
+// Function for Updating Patient record 
+void updatePatient() {
+    if (currentRole != "receptionist") {
+    cout << "Access denied. Receptionist only.\n";
+    return;
+}
+    if (isEmpty()) {
+        cout << "Queue is empty.\n";
+        return;
+    }
+
+    int id;
+    cout << "Enter Patient ID to update: ";
+    id = getValidInt();
+
+    Node* temp = hospitalQueue;
+Node* prev = nullptr;
+
+while (temp != nullptr && temp->data.id != id) {
+    prev = temp;
+    temp = temp->next;
+}
+
+if (temp == nullptr) {
+    cout << "Patient not found.\n";
+    return;
+}
+   Patient p = temp->data;
+    cout << "\nCurrent Details:\n";
+    cout << "Name: " << p.name << endl;
+    cout << "Condition: " << p.condition << endl;
+    cout << "Priority: " << p.priority << endl;
+
+    p.name = getValidInput("Enter New Name: ");
+
+    cout << "1. Severe Injury\n";
+    cout << "2. Serious Illness\n";
+    cout << "3. Mild Condition\n";
+
+    int choice = getValidInt();
+
+    switch (choice) {
+        case 1:
+            p.condition = "Severe Injury";
+            p.priority = 1;
+            break;
+        case 2:
+            p.condition = "Serious Illness";
+            p.priority = 2;
+            break;
+        case 3:
+            p.condition = "Mild Condition";
+            p.priority = 3;
+            break;
+        default:
+            cout << "Invalid choice. Keeping previous condition.\n";
+    }
+    if (prev == nullptr)
+    hospitalQueue = temp->next;
+else
+    prev->next = temp->next;
+delete temp;
+    enqueue(p);
+
+    cout << "Patient updated successfully.\n";
+    SaveToFile();
+}
+//Function for Cancelling Appointment 
+void cancelPatient() {
+    if (currentRole != "receptionist") {
+    cout << "Access denied. Receptionist only.\n";
+    return;
+}
+    if (isEmpty()) {
+        cout << "Queue is empty.\n";
+        return;
+    }
+
+    int id;
+    cout << "Enter Patient ID to cancel: ";
+    id = getValidInt();
+
+    Node* temp = hospitalQueue;
+    Node* prev = nullptr;
+
+    while (temp != nullptr && temp->data.id != id) {
+        prev = temp;
+        temp = temp->next;
+    }
+
+    if (temp == nullptr) {
+        cout << "Patient not found.\n";
+        return;
+    }
+
+    if (prev == nullptr)
+        hospitalQueue = temp->next;
+    else
+        prev->next = temp->next;
+
+    delete temp;
+
+    cout << "Patient cancelled successfully.\n";
+   SaveToFile();
+}
+//Function for Doctor priority Override 
+void doctorOverride() {
+if (currentRole != "doctor") {
+        cout << "Access denied. Only doctors can perform this action.\n";
+        return;
+    }
+    if (isEmpty()) {
+        cout << "Queue is empty.\n";
+        return;
+    }
+
+    int id;
+    cout << "Enter Patient ID for doctor override: ";
+    id = getValidInt();
+
+    Node* temp = hospitalQueue;
+    Node* prev = nullptr;
+
+    while (temp != nullptr && temp->data.id != id) {
+        prev = temp;
+        temp = temp->next;
+    }
+
+    if (temp == nullptr) {
+        cout << "Patient not found.\n";
+        return;
+    }
+
+    cout << "\nCurrent Details:\n";
+    cout << "ID: " << temp->data.id << endl;
+    cout << "Name: " << temp->data.name << endl;
+    cout << "Condition: " << temp->data.condition << endl;
+    cout << "Priority: " << temp->data.priority << endl;
+
+    cout << "\nDoctor Override - Set New Priority:\n";
+    cout << "1. Severe Injury\n";
+    cout << "2. Serious Illness\n";
+    cout << "3. Mild Condition\n";
+    Patient p = temp->data;;
+    cout << "Doctor Override - Set New Priority:\n";
+    int newPriority = getValidInt();
+    if (newPriority < 1 || newPriority > 3) {
+    cout << "Invalid priority. Override cancelled.\n";
+    return;
+}
+
+    switch (newPriority) {
+    case 1:
+        p.condition = "Severe Injury";
+        break;
+    case 2:
+        p.condition = "Serious Illness";
+        break;
+    case 3:
+        p.condition = "Mild Condition";
+        break;
+}
+    
+    p.priority = newPriority;
+
+    // remove from list
+    if (prev == nullptr)
+        hospitalQueue = temp->next;
+    else
+        prev->next = temp->next;
+
+    delete temp;
+
+    enqueue(p);
+    cout << "Doctor override applied successfully.\n";
+    SaveToFile();
+}
+
+bool isLoggedIn = false;
+bool login() {
+    string username, password;
+
+    cout << "\n--- Login ---\n";
+    cout << "Username: ";
+    getline(cin, username);
+
+    cout << "Password: ";
+    getline(cin, password);
+
+    if (username == "admin" && password == "123") {
+        currentRole = "receptionist";
+        isLoggedIn = true;
+        cout << "Receptionist login successful.\n";
+        return true;
+    }
+    else if (username == "doctor" && password == "456") {
+        currentRole = "doctor";
+        isLoggedIn = true;
+        cout << "Doctor login successful.\n";
+        return true;
+    }
+
+    cout << "Invalid credentials.\n";
+    cout << "Try again...\n";
+    return false;
+}
+// Main function 
+int main() {
+    int choice;
+bool running = true;
+    loadFromFile();
+    while (running) {
+
+        while (!isLoggedIn) {
+            login();
+        }
+
+    do {
+        cout << "\n--- Hospital Queue System ---\n";
+        cout << "1. Add Patient\n";
+        cout << "2. Serve Patient\n";
+        cout << "3. Display Patients\n";
+        cout << "4. Search Patient\n";
+        cout << "5. Save To File\n";
+        cout << "6. Load From File\n";
+        cout << "7. Update patient \n";
+        cout << "8. cancel patient \n";
+        cout << "9. Doctor Override \n";
+        cout << "10. Logout\n";
+        cout << "11. Exit\n";
+        cout << "Enter choice: ";
+        choice = getValidInt();
+
+        switch (choice) {
+            case 1:
+                addPatient();
+                break;
+            case 2:
+                servePatient();
+                break;
+            case 3:
+                displayPatients();
+                break;
+            case 4:
+                display_sPatients();
+                break;
+            case 5:
+                SaveToFile();
+                break;
+            case 6:
+         {
+        int confirm;
+        do {
+        cout << "Warning: Loading will discard current unsaved data. do you want to Continue? (1=Yes, 0=No): ";
+        confirm = getValidInt();
+      } while (confirm != 0 && confirm != 1);
+
+      if (confirm == 1) {
+          loadFromFile();
+      } else {
+         cout << "Load cancelled.\n";
+      }
+
+    break;
+}
+            case 7:
+                updatePatient();
+                break;
+             case 8:
+                cancelPatient();
+                break;   
+             case 9:
+                doctorOverride();
+                break;  
+             case 10:
+                cout << "Logging out...\n";
+                isLoggedIn = false;
+                currentRole = "";
+                break;
+                       
+             case 11: {
+    int confirm;
+    do {
+        cout << "Do you want to save before exiting? (1=Yes, 0=No): ";
+        confirm = getValidInt();
+    } while (confirm != 0 && confirm != 1);
+
+    if (confirm == 1) {
+        SaveToFile();
+    }
+    cout << "Exiting program.\n";
+    running = false;
+    isLoggedIn = false;
+    break;
+}    
+            default:
+                cout << "Invalid choice.\n";
+        }
+} while (isLoggedIn); 
+    }
+
+    return 0;
+}
